@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import SwiftUI
+import Combine
 
 /// Shared page state. The AppDelegate forwards scroll-wheel (trackpad and mouse)
 /// events here; the ContentView observes `current` and renders the active page.

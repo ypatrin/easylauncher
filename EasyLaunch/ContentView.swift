@@ -109,8 +109,13 @@ struct ContentView: View {
         GeometryReader { geo in
             let w = geo.size.width
             let h = geo.size.height
+            let draggingBinding = Binding<AppItem?>(
+                get: { dragTracker.item },
+                set: { dragTracker.item = $0 }
+            )
             ZStack {
-                ForEach(Array(displayedPages.enumerated()), id: \.offset) { idx, page in
+                ForEach(displayedPages.indices, id: \.self) { idx in
+                    let page = displayedPages[idx]
                     AppGridPage(
                         apps: page.apps,
                         pageIndex: idx,
@@ -119,13 +124,17 @@ struct ContentView: View {
                         iconSize: metrics.iconSize,
                         labelFontSize: metrics.labelFontSize,
                         launchingId: launchingId,
-                        draggingItem: $dragTracker.item,
+                        draggingItem: draggingBinding,
                         onLaunch: launch,
                         onToggleHidden: toggleHidden,
                         isHidden: { hiddenAppIDs.contains($0.id) },
                         strings: strings,
-                        onMove: showingHiddenApps ? nil : moveDraggedItem,
-                        onPageTurnRequest: showingHiddenApps ? nil : handleDragPageTurn
+                        onMove: showingHiddenApps ? nil : { pageIndex, targetIndex in
+                            moveDraggedItem(toPage: pageIndex, to: targetIndex)
+                        },
+                        onPageTurnRequest: showingHiddenApps ? nil : { direction in
+                            handleDragPageTurn(direction)
+                        }
                     )
                     .padding(.horizontal, 80)
                     .padding(.top, metrics.gridTopPadding)
@@ -147,6 +156,10 @@ struct ContentView: View {
 
     private func searchResults(metrics: IconMetrics) -> some View {
         GeometryReader { geo in
+            let draggingBinding = Binding<AppItem?>(
+                get: { dragTracker.item },
+                set: { dragTracker.item = $0 }
+            )
             AppGridPage(
                 apps: filtered,
                 pageIndex: 0,
@@ -155,7 +168,7 @@ struct ContentView: View {
                 iconSize: metrics.iconSize,
                 labelFontSize: metrics.labelFontSize,
                 launchingId: launchingId,
-                draggingItem: $dragTracker.item,
+                draggingItem: draggingBinding,
                 onLaunch: launch,
                 onToggleHidden: toggleHidden,
                 isHidden: { hiddenAppIDs.contains($0.id) },
