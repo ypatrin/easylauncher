@@ -1,0 +1,1 @@
+hdiutil create  -volname "EasyLaunch"  -srcfolder ./dmg -ov -format UDZO EasyLaunch.dmg

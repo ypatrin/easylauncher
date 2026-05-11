@@ -29,23 +29,23 @@ final class Pager: ObservableObject {
         if clamped != current { current = clamped }
     }
 
-    func handleScroll(_ event: NSEvent) {
-        guard pageCount > 1 else { return }
+    @discardableResult
+    func handleScroll(_ event: NSEvent) -> Bool {
+        guard pageCount > 1 else { return false }
 
         // Ignore trackpad inertia — no matter how hard the swipe, advance only one page.
-        if !event.momentumPhase.isEmpty { return }
+        if !event.momentumPhase.isEmpty { return true }
 
         // Mouse wheel events have empty `phase` (no .began/.ended). Trackpad gestures
         // do set `phase`. Route them through separate paths.
         if event.phase.isEmpty {
-            handleMouseWheel(event)
-            return
+            return handleMouseWheel(event)
         }
 
-        handleTrackpad(event)
+        return handleTrackpad(event)
     }
 
-    private func handleTrackpad(_ event: NSEvent) {
+    private func handleTrackpad(_ event: NSEvent) -> Bool {
         switch event.phase {
         case .began:
             accumulatedDX = 0
@@ -53,20 +53,20 @@ final class Pager: ObservableObject {
         case .ended, .cancelled:
             accumulatedDX = 0
             locked = false
-            return
+            return true
         default:
             break
         }
 
-        guard !locked else { return }
+        guard !locked else { return true }
 
         let dx = event.scrollingDeltaX
         let dy = event.scrollingDeltaY
         // Ignore mostly-vertical gestures
-        if abs(dy) > abs(dx) * 1.5 { return }
+        if abs(dx) < 1 || abs(dy) > abs(dx) * 1.5 { return false }
 
         accumulatedDX += dx
-        let threshold: CGFloat = 28
+        let threshold: CGFloat = 42
 
         if accumulatedDX <= -threshold, current < pageCount - 1 {
             current += 1
@@ -75,19 +75,21 @@ final class Pager: ObservableObject {
             current -= 1
             locked = true
         }
+
+        return true
     }
 
-    private func handleMouseWheel(_ event: NSEvent) {
+    private func handleMouseWheel(_ event: NSEvent) -> Bool {
         // Hard time-window cooldown so a single wheel click (which often produces
         // several rapid scrollWheel events) flips only one page.
         let now = ProcessInfo.processInfo.systemUptime
-        if now - lastMouseWheelChange < mouseWheelCooldown { return }
+        if now - lastMouseWheelChange < mouseWheelCooldown { return true }
 
         // Mouse wheels usually only have Y, but horizontal wheels exist — take the dominant axis.
         let dx = event.scrollingDeltaX
         let dy = event.scrollingDeltaY
         let delta = abs(dx) > abs(dy) ? dx : dy
-        guard abs(delta) > 0.5 else { return }
+        guard abs(delta) > 0.5 else { return false }
 
         if delta < 0, current < pageCount - 1 {
             current += 1
@@ -96,5 +98,7 @@ final class Pager: ObservableObject {
             current -= 1
             lastMouseWheelChange = now
         }
+
+        return true
     }
 }

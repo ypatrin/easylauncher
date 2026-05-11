@@ -56,8 +56,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
-            Pager.shared.handleScroll(event)
-            return event
+            Pager.shared.handleScroll(event) ? nil : event
         }
 
         mouseDownMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { event in

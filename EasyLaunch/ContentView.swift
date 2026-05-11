@@ -140,6 +140,7 @@ struct ContentView: View {
                     .padding(.top, metrics.gridTopPadding)
                     .padding(.bottom, metrics.gridBottomPadding)
                     .frame(width: w, height: h)
+                    .compositingGroup()
                     .contentShape(Rectangle())
                     .onTapGesture { closeApp() }
                     .offset(x: CGFloat(idx - pager.current) * w)
@@ -148,7 +149,7 @@ struct ContentView: View {
             }
             .frame(width: w, height: h)
             .clipped()
-            .animation(.spring(response: 0.32, dampingFraction: 0.85), value: pager.current)
+            .animation(.timingCurve(0.16, 0.84, 0.24, 1, duration: 0.8), value: pager.current)
         }
     }
 
