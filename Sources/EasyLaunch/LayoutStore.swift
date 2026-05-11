@@ -6,11 +6,11 @@ enum LayoutPersistence {
     private static var pending: DispatchWorkItem?
     private static let interval: TimeInterval = 0.4
 
-    static func scheduleSave(pages: [[AppItem]]) {
+    static func scheduleSave(pages: [[AppItem]], hiddenAppIDs: Set<String>) {
         pending?.cancel()
         let snapshot = pages.map { $0.map(\.id) }
         let work = DispatchWorkItem {
-            LayoutStore.save(snapshot)
+            LayoutStore.save(snapshot, hiddenAppIDs: hiddenAppIDs)
         }
         pending = work
         DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + interval, execute: work)
@@ -37,10 +37,12 @@ enum LayoutStore {
     private struct Layout: Codable {
         var order: [String]
         var pages: [[String]]?
+        var hidden: [String]?
     }
 
     struct Snapshot {
         let pages: [[String]]
+        let hiddenAppIDs: Set<String>
 
         var order: [String] {
             pages.flatMap { $0 }
@@ -49,20 +51,26 @@ enum LayoutStore {
 
     /// Returns the saved layout. Empty if the file doesn't exist or can't be decoded.
     static func load() -> Snapshot {
-        guard let data = try? Data(contentsOf: fileURL) else { return Snapshot(pages: []) }
+        guard let data = try? Data(contentsOf: fileURL) else {
+            return Snapshot(pages: [], hiddenAppIDs: [])
+        }
         do {
             let layout = try JSONDecoder().decode(Layout.self, from: data)
+            let hiddenAppIDs = Set(layout.hidden ?? [])
             if let pages = layout.pages, !pages.isEmpty {
-                return Snapshot(pages: pages)
+                return Snapshot(pages: pages, hiddenAppIDs: hiddenAppIDs)
             }
-            return Snapshot(pages: layout.order.isEmpty ? [] : [layout.order])
+            return Snapshot(
+                pages: layout.order.isEmpty ? [] : [layout.order],
+                hiddenAppIDs: hiddenAppIDs
+            )
         } catch {
-            return Snapshot(pages: [])
+            return Snapshot(pages: [], hiddenAppIDs: [])
         }
     }
 
     /// Persists page boundaries and app order, creating the directory if needed.
-    static func save(_ pages: [[String]]) {
+    static func save(_ pages: [[String]], hiddenAppIDs: Set<String>) {
         let fm = FileManager.default
         if !fm.fileExists(atPath: directoryURL.path) {
             do {
@@ -77,7 +85,8 @@ enum LayoutStore {
         do {
             let nonEmptyPages = pages.filter { !$0.isEmpty }
             let order = nonEmptyPages.flatMap { $0 }
-            let data = try encoder.encode(Layout(order: order, pages: nonEmptyPages))
+            let hidden = Array(hiddenAppIDs).sorted()
+            let data = try encoder.encode(Layout(order: order, pages: nonEmptyPages, hidden: hidden))
             try data.write(to: fileURL, options: .atomic)
         } catch {
             fputs("EasyLaunch: failed to write \(fileURL.path): \(error)\n", stderr)

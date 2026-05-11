@@ -6,7 +6,10 @@ struct AppIconView: View {
     let iconSize: CGFloat
     let labelFontSize: CGFloat
     let isLaunching: Bool
+    let isHidden: Bool
+    let strings: L10n.Strings
     let onLaunch: (AppItem) -> Void
+    let onToggleHidden: (AppItem) -> Void
 
     var body: some View {
         VStack(spacing: 8) {
@@ -30,6 +33,16 @@ struct AppIconView: View {
         .onTapGesture {
             CloseTracker.shouldClose = false
             onLaunch(app)
+        }
+        .contextMenu {
+            Button(strings.launch) {
+                CloseTracker.shouldClose = false
+                onLaunch(app)
+            }
+            Button(isHidden ? strings.show : strings.hide) {
+                CloseTracker.shouldClose = false
+                onToggleHidden(app)
+            }
         }
     }
 }

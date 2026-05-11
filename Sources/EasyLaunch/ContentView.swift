@@ -5,23 +5,53 @@ struct ContentView: View {
     @ObservedObject private var pager = Pager.shared
     @ObservedObject private var dragTracker = DragTracker.shared
 
-    @State private var pages: [[AppItem]] = []
+    @State private var allPages: [[AppItem]] = []
     @State private var search: String = ""
     @State private var launchingId: String? = nil
     @State private var appeared: Bool = false
+    @State private var hiddenAppIDs: Set<String> = []
+    @State private var showingHiddenApps: Bool = false
 
     private let columns = 7
     private let rows = 5
     private let baseIconSize: CGFloat = 72
     private let maxIconSize: CGFloat = 108
     private var perPage: Int { columns * rows }
+    private var strings: L10n.Strings { L10n.current }
 
-    private var allApps: [AppItem] { pages.flatMap { $0 } }
+    private var allApps: [AppItem] { allPages.flatMap { $0 } }
+
+    private var displayedPages: [DisplayedPage] {
+        let includeHidden = showingHiddenApps
+        var result = allPages.enumerated().compactMap { index, page -> DisplayedPage? in
+            let filtered = page.filter { app in
+                includeHidden ? hiddenAppIDs.contains(app.id) : !hiddenAppIDs.contains(app.id)
+            }
+            if filtered.isEmpty {
+                let isTrailingEmptyVisiblePage = !includeHidden
+                    && dragTracker.item != nil
+                    && index == allPages.indices.last
+                    && page.isEmpty
+                return isTrailingEmptyVisiblePage ? DisplayedPage(canonicalIndex: index, apps: []) : nil
+            }
+            return DisplayedPage(canonicalIndex: index, apps: filtered)
+        }
+
+        if result.isEmpty {
+            let fallbackIndex = allPages.indices.last ?? 0
+            result = [DisplayedPage(canonicalIndex: fallbackIndex, apps: [])]
+        }
+        return result
+    }
+
+    private var displayedApps: [AppItem] {
+        displayedPages.flatMap(\.apps)
+    }
 
     private var filtered: [AppItem] {
         let q = search.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return [] }
-        return allApps.filter { $0.name.localizedCaseInsensitiveContains(q) }
+        return displayedApps.filter { $0.name.localizedCaseInsensitiveContains(q) }
     }
 
     var body: some View {
@@ -39,15 +69,18 @@ struct ContentView: View {
                     .onTapGesture { closeApp() }
 
                 VStack(spacing: 16) {
-                    SearchField(text: $search)
-                        .frame(maxWidth: 480)
-                        .padding(.top, 48)
+                    HStack(spacing: 10) {
+                        SearchField(text: $search, placeholder: strings.searchPlaceholder)
+                        hiddenAppsToggle
+                    }
+                    .frame(maxWidth: 536)
+                    .padding(.top, 48)
 
                     if !search.isEmpty {
                         searchResults(metrics: metrics)
                     } else {
                         pagerView(metrics: metrics)
-                        PageIndicator(count: pages.count, current: pager.current) { idx in
+                        PageIndicator(count: displayedPages.count, current: pager.current) { idx in
                             pager.goTo(idx)
                         }
                         .padding(.bottom, 28)
@@ -77,9 +110,9 @@ struct ContentView: View {
             let w = geo.size.width
             let h = geo.size.height
             ZStack {
-                ForEach(pages.indices, id: \.self) { idx in
+                ForEach(Array(displayedPages.enumerated()), id: \.offset) { idx, page in
                     AppGridPage(
-                        apps: pages[idx],
+                        apps: page.apps,
                         pageIndex: idx,
                         columns: columns,
                         rows: rows,
@@ -88,8 +121,11 @@ struct ContentView: View {
                         launchingId: launchingId,
                         draggingItem: $dragTracker.item,
                         onLaunch: launch,
-                        onMove: moveDraggedItem,
-                        onPageTurnRequest: handleDragPageTurn
+                        onToggleHidden: toggleHidden,
+                        isHidden: { hiddenAppIDs.contains($0.id) },
+                        strings: strings,
+                        onMove: showingHiddenApps ? nil : moveDraggedItem,
+                        onPageTurnRequest: showingHiddenApps ? nil : handleDragPageTurn
                     )
                     .padding(.horizontal, 80)
                     .padding(.top, metrics.gridTopPadding)
@@ -121,6 +157,9 @@ struct ContentView: View {
                 launchingId: launchingId,
                 draggingItem: $dragTracker.item,
                 onLaunch: launch,
+                onToggleHidden: toggleHidden,
+                isHidden: { hiddenAppIDs.contains($0.id) },
+                strings: strings,
                 onMove: nil,
                 onPageTurnRequest: nil
             )
@@ -137,6 +176,27 @@ struct ContentView: View {
 
     private func closeApp() {
         NSApp.terminate(nil)
+    }
+
+    private var hiddenAppsToggle: some View {
+        Button {
+            CloseTracker.shouldClose = false
+            showingHiddenApps.toggle()
+            search = ""
+            pager.goTo(0)
+            pager.reset(pageCount: displayedPages.count)
+        } label: {
+            Image(systemName: showingHiddenApps ? "eye.slash.circle.fill" : "eye.slash.circle")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(showingHiddenApps ? .white : .white.opacity(0.72))
+                .frame(width: 34, height: 34)
+                .background(
+                    Circle()
+                        .fill(showingHiddenApps ? Color.white.opacity(0.16) : Color.clear)
+                )
+        }
+        .buttonStyle(.plain)
+        .help(showingHiddenApps ? strings.visibleApps : strings.hiddenApps)
     }
 
     private func iconMetrics(for size: CGSize) -> IconMetrics {
@@ -172,8 +232,9 @@ struct ContentView: View {
             ordered.append(app)
         }
 
-        pages = rebuildPages(from: ordered, using: savedLayout.pages)
-        pager.reset(pageCount: pages.count)
+        allPages = rebuildPages(from: ordered, using: savedLayout.pages)
+        hiddenAppIDs = savedLayout.hiddenAppIDs.intersection(Set(scanned.map(\.id)))
+        pager.reset(pageCount: displayedPages.count)
 
         // Persist immediately so a freshly-installed app shows up in the file
         // (and a missing-now app is pruned from it).
@@ -193,56 +254,90 @@ struct ContentView: View {
     }
 
     private func handleDragPageTurn(_ direction: PageTurnDirection) {
+        guard !showingHiddenApps else { return }
         switch direction {
         case .left:
             guard pager.current > 0 else { return }
             pager.goTo(pager.current - 1)
         case .right:
-            if pager.current < pages.count - 1 {
+            if pager.current < displayedPages.count - 1 {
                 pager.goTo(pager.current + 1)
             } else {
-                pages.append([])
-                pager.reset(pageCount: pages.count)
-                pager.goTo(pages.count - 1)
+                allPages.append([])
+                pager.reset(pageCount: displayedPages.count)
+                pager.goTo(displayedPages.count - 1)
             }
         }
     }
 
     private func moveDraggedItem(toPage pageIndex: Int, to targetIndex: Int) {
+        guard !showingHiddenApps else { return }
         guard let dragging = dragTracker.item else { return }
-        guard pages.indices.contains(pageIndex) else { return }
-        guard let sourcePageIndex = pages.firstIndex(where: { page in
+        guard displayedPages.indices.contains(pageIndex) else { return }
+
+        let destinationCanonicalPageIndex = displayedPages[pageIndex].canonicalIndex
+        let visibleTargetPageApps = displayedPages[pageIndex].apps
+
+        guard allPages.indices.contains(destinationCanonicalPageIndex) else { return }
+        guard let sourcePageIndex = allPages.firstIndex(where: { page in
             page.contains(dragging)
         }) else { return }
-        guard let sourceItemIndex = pages[sourcePageIndex].firstIndex(of: dragging) else { return }
+        guard let sourceItemIndex = allPages[sourcePageIndex].firstIndex(of: dragging) else { return }
 
-        let clampedTargetIndex = max(0, min(targetIndex, pages[pageIndex].count))
-        if sourcePageIndex == pageIndex, sourceItemIndex == clampedTargetIndex { return }
-
-        var updatedPages = pages
+        var updatedPages = allPages
         let item = updatedPages[sourcePageIndex].remove(at: sourceItemIndex)
 
-        var destinationPageIndex = pageIndex
-        if sourcePageIndex == pageIndex, sourceItemIndex < clampedTargetIndex {
-            destinationPageIndex = pageIndex
-        }
-
-        let adjustedTargetIndex: Int = {
-            if sourcePageIndex == destinationPageIndex, sourceItemIndex < clampedTargetIndex {
-                return clampedTargetIndex - 1
+        let destinationVisibleAppsAfterRemoval: [AppItem] = {
+            if sourcePageIndex == destinationCanonicalPageIndex {
+                return visibleTargetPageApps.filter { $0.id != dragging.id }
             }
-            return clampedTargetIndex
+            return updatedPages[destinationCanonicalPageIndex].filter { !hiddenAppIDs.contains($0.id) }
         }()
 
-        let finalTargetIndex = max(0, min(adjustedTargetIndex, updatedPages[destinationPageIndex].count))
-        updatedPages[destinationPageIndex].insert(item, at: finalTargetIndex)
+        let clampedTargetIndex = max(0, min(targetIndex, destinationVisibleAppsAfterRemoval.count))
+        let insertionIndex = canonicalInsertionIndex(
+            in: updatedPages[destinationCanonicalPageIndex],
+            visibleApps: destinationVisibleAppsAfterRemoval,
+            visibleTargetIndex: clampedTargetIndex
+        )
 
-        rebalancePages(&updatedPages, startingAt: destinationPageIndex)
+        updatedPages[destinationCanonicalPageIndex].insert(item, at: insertionIndex)
+        rebalancePages(&updatedPages, startingAt: destinationCanonicalPageIndex)
         removeEmptyPages(&updatedPages)
 
-        pages = updatedPages
-        pager.reset(pageCount: pages.count)
+        allPages = updatedPages
+        pager.reset(pageCount: displayedPages.count)
         persistLayoutDebounced()
+    }
+
+    private func toggleHidden(_ app: AppItem) {
+        if hiddenAppIDs.contains(app.id) {
+            hiddenAppIDs.remove(app.id)
+        } else {
+            hiddenAppIDs.insert(app.id)
+        }
+        pager.goTo(0)
+        pager.reset(pageCount: displayedPages.count)
+        persistLayoutDebounced()
+    }
+
+    private func canonicalInsertionIndex(
+        in page: [AppItem],
+        visibleApps: [AppItem],
+        visibleTargetIndex: Int
+    ) -> Int {
+        guard !page.isEmpty else { return 0 }
+        guard !visibleApps.isEmpty else { return page.count }
+
+        if visibleTargetIndex >= visibleApps.count {
+            guard let lastVisible = visibleApps.last,
+                  let lastVisibleIndex = page.firstIndex(of: lastVisible)
+            else { return page.count }
+            return lastVisibleIndex + 1
+        }
+
+        let nextVisible = visibleApps[visibleTargetIndex]
+        return page.firstIndex(of: nextVisible) ?? page.count
     }
 
     private func rebalancePages(_ pages: inout [[AppItem]], startingAt startIndex: Int) {
@@ -269,14 +364,14 @@ struct ContentView: View {
     }
 
     private func persistLayout() {
-        let snapshot = pages.map { $0.map(\.id) }
+        let snapshot = allPages.map { $0.map(\.id) }
         DispatchQueue.global(qos: .utility).async {
-            LayoutStore.save(snapshot)
+            LayoutStore.save(snapshot, hiddenAppIDs: hiddenAppIDs)
         }
     }
 
     private func persistLayoutDebounced() {
-        LayoutPersistence.scheduleSave(pages: pages)
+        LayoutPersistence.scheduleSave(pages: allPages, hiddenAppIDs: hiddenAppIDs)
     }
 
     private func rebuildPages(from ordered: [AppItem], using savedPages: [[String]]) -> [[AppItem]] {
@@ -337,4 +432,9 @@ private struct IconMetrics {
     let labelFontSize: CGFloat
     let gridTopPadding: CGFloat
     let gridBottomPadding: CGFloat
+}
+
+private struct DisplayedPage {
+    let canonicalIndex: Int
+    let apps: [AppItem]
 }

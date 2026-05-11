@@ -7,7 +7,10 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "EasyLaunch",
-            path: "Sources/EasyLaunch"
+            path: "Sources/EasyLaunch",
+            resources: [
+                .copy("Resources/AppIcon.icns")
+            ]
         )
     ]
 )

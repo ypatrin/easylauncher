@@ -11,6 +11,9 @@ struct AppGridPage: View {
     let launchingId: String?
     @Binding var draggingItem: AppItem?
     let onLaunch: (AppItem) -> Void
+    let onToggleHidden: (AppItem) -> Void
+    let isHidden: (AppItem) -> Bool
+    let strings: L10n.Strings
     /// Live-reorder callback. nil disables drag (e.g. search results).
     let onMove: ((Int, Int) -> Void)?
     let onPageTurnRequest: ((PageTurnDirection) -> Void)?
@@ -64,7 +67,10 @@ struct AppGridPage: View {
             iconSize: iconSize,
             labelFontSize: labelFontSize,
             isLaunching: app.id == launchingId,
-            onLaunch: onLaunch
+            isHidden: isHidden(app),
+            strings: strings,
+            onLaunch: onLaunch,
+            onToggleHidden: onToggleHidden
         )
         .opacity(dragged ? 0 : 1)
         .modifier(CellDragModifier(

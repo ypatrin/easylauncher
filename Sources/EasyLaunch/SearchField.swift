@@ -9,13 +9,14 @@ private struct SearchFrameKey: PreferenceKey {
 
 struct SearchField: View {
     @Binding var text: String
+    let placeholder: String
     @FocusState private var focused: Bool
 
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
-            TextField("Поиск", text: $text)
+            TextField(placeholder, text: $text)
                 .textFieldStyle(.plain)
                 .focused($focused)
                 .font(.system(size: 16))
