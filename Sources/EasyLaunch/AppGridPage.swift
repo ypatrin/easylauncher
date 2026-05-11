@@ -3,20 +3,24 @@ import UniformTypeIdentifiers
 
 struct AppGridPage: View {
     let apps: [AppItem]
+    let pageIndex: Int
     let columns: Int
+    let rows: Int
     let iconSize: CGFloat
+    let labelFontSize: CGFloat
     let launchingId: String?
     @Binding var draggingItem: AppItem?
     let onLaunch: (AppItem) -> Void
     /// Live-reorder callback. nil disables drag (e.g. search results).
     let onMove: ((Int, Int) -> Void)?
+    let onPageTurnRequest: ((PageTurnDirection) -> Void)?
 
     private let hSpacing: CGFloat = 16
-    private var cellHeight: CGFloat { iconSize + 36 }
+    private var cellHeight: CGFloat { iconSize + labelFontSize + 32 }
 
     var body: some View {
         GeometryReader { geo in
-            let rowsCount = max(1, Int(ceil(Double(apps.count) / Double(columns))))
+            let rowsCount = max(1, rows)
             let vSpacing: CGFloat = {
                 guard rowsCount > 1 else { return 0 }
                 let extra = geo.size.height - CGFloat(rowsCount) * cellHeight
@@ -38,13 +42,16 @@ struct AppGridPage: View {
             .contentShape(Rectangle())
             .onDrop(of: [.text], delegate: GridDropDelegate(
                 apps: apps,
+                pageIndex: pageIndex,
                 columns: columns,
+                pageWidth: geo.size.width,
                 cellWidth: cellWidth,
                 cellHeight: cellHeight,
                 hSpacing: hSpacing,
                 vSpacing: vSpacing,
                 draggingItem: $draggingItem,
-                onMove: onMove
+                onMove: onMove,
+                onPageTurnRequest: onPageTurnRequest
             ))
         }
     }
@@ -55,6 +62,7 @@ struct AppGridPage: View {
         AppIconView(
             app: app,
             iconSize: iconSize,
+            labelFontSize: labelFontSize,
             isLaunching: app.id == launchingId,
             onLaunch: onLaunch
         )
@@ -62,6 +70,7 @@ struct AppGridPage: View {
         .modifier(CellDragModifier(
             app: app,
             draggingItem: $draggingItem,
+            iconSize: iconSize,
             enabled: onMove != nil
         ))
     }
@@ -70,6 +79,7 @@ struct AppGridPage: View {
 private struct CellDragModifier: ViewModifier {
     let app: AppItem
     @Binding var draggingItem: AppItem?
+    let iconSize: CGFloat
     let enabled: Bool
 
     func body(content: Content) -> some View {
@@ -81,7 +91,7 @@ private struct CellDragModifier: ViewModifier {
                 } preview: {
                     Image(nsImage: app.icon)
                         .resizable()
-                        .frame(width: 86, height: 86)
+                        .frame(width: iconSize * 1.2, height: iconSize * 1.2)
                 }
         } else {
             content
@@ -95,46 +105,72 @@ private struct CellDragModifier: ViewModifier {
 /// feel of the original Launchpad.
 private struct GridDropDelegate: DropDelegate {
     let apps: [AppItem]
+    let pageIndex: Int
     let columns: Int
+    let pageWidth: CGFloat
     let cellWidth: CGFloat
     let cellHeight: CGFloat
     let hSpacing: CGFloat
     let vSpacing: CGFloat
     @Binding var draggingItem: AppItem?
     let onMove: ((Int, Int) -> Void)?
+    let onPageTurnRequest: ((PageTurnDirection) -> Void)?
+
+    private let edgeTurnZone: CGFloat = 72
 
     private func targetIndex(at point: CGPoint) -> Int {
-        guard !apps.isEmpty else { return 0 }
         let colPitch = cellWidth + hSpacing
         let rowPitch = cellHeight + vSpacing
         let col = max(0, min(columns - 1, Int(point.x / max(1, colPitch))))
         let row = max(0, Int(point.y / max(1, rowPitch)))
         let raw = row * columns + col
-        return min(max(0, raw), apps.count - 1)
+        return min(max(0, raw), apps.count)
     }
 
     private func attemptReorder(at point: CGPoint) {
-        guard let dragging = draggingItem,
-              let onMove,
-              let from = apps.firstIndex(of: dragging)
-        else { return }
+        guard draggingItem != nil, let onMove else { return }
         let to = targetIndex(at: point)
-        guard to != from else { return }
         withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
-            onMove(from, to)
+            onMove(pageIndex, to)
         }
     }
 
+    private func handleEdgeTurnIfNeeded(at point: CGPoint) -> Bool {
+        guard draggingItem != nil, let onPageTurnRequest else { return false }
+
+        if point.x <= edgeTurnZone {
+            DragTracker.shared.schedulePageTurn(.left) {
+                onPageTurnRequest(.left)
+            }
+            return true
+        }
+
+        if point.x >= pageWidth - edgeTurnZone {
+            DragTracker.shared.schedulePageTurn(.right) {
+                onPageTurnRequest(.right)
+            }
+            return true
+        }
+
+        DragTracker.shared.cancelPendingPageTurn()
+        return false
+    }
+
     func dropEntered(info: DropInfo) {
+        if handleEdgeTurnIfNeeded(at: info.location) { return }
         attemptReorder(at: info.location)
     }
 
     func dropUpdated(info: DropInfo) -> DropProposal? {
+        if handleEdgeTurnIfNeeded(at: info.location) {
+            return DropProposal(operation: .move)
+        }
         attemptReorder(at: info.location)
         return DropProposal(operation: .move)
     }
 
     func performDrop(info: DropInfo) -> Bool {
+        DragTracker.shared.cancelPendingPageTurn()
         attemptReorder(at: info.location)
         withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
             draggingItem = nil
