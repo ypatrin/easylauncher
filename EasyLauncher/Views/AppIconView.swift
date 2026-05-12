@@ -13,11 +13,20 @@ struct AppIconView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            Image(nsImage: app.icon)
-                .resizable()
-                .interpolation(.high)
-                .frame(width: iconSize, height: iconSize)
-                .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
+            ZStack {
+                Image(nsImage: app.icon)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: iconSize, height: iconSize)
+                    .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
+                Image(nsImage: app.icon)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: iconSize, height: iconSize)
+                    .scaleEffect(isLaunching ? 2.4 : 1.0)
+                    .opacity(isLaunching ? 0 : 1)
+                    .allowsHitTesting(false)
+            }
             Text(app.name)
                 .font(.system(size: labelFontSize))
                 .foregroundStyle(.white)
@@ -27,8 +36,6 @@ struct AppIconView: View {
                 .frame(maxWidth: iconSize + 28)
         }
         .padding(8)
-        .scaleEffect(isLaunching ? 2.4 : 1.0)
-        .opacity(isLaunching ? 0 : 1)
         .contentShape(Rectangle())
         .onTapGesture {
             CloseTracker.shouldClose = false
