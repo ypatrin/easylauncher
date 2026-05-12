@@ -10,7 +10,7 @@ final class LauncherWindow: NSWindow {
 
 /// Owns the fullscreen, borderless launcher window's lifecycle and chrome.
 final class WindowManager {
-    private var window: NSWindow?
+    private(set) var window: NSWindow?
 
     func showLauncher<Content: View>(rootView: Content) {
         let screen = NSScreen.main ?? NSScreen.screens.first!
@@ -42,5 +42,20 @@ final class WindowManager {
         window.makeFirstResponder(hosting)
 
         self.window = window
+    }
+
+    func presentLauncher() {
+        guard let window else { return }
+        NSApp.unhide(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+        if let hosting = window.contentView {
+            window.makeFirstResponder(hosting)
+        }
+    }
+
+    func hideLauncher() {
+        window?.orderOut(nil)
+        NSApp.hide(nil)
     }
 }

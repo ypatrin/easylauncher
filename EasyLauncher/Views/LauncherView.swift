@@ -97,6 +97,11 @@ struct LauncherView: View {
                     }
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .launcherWillHide)) { _ in
+                launchingId = nil
+                search = ""
+                pager.goTo(0)
+            }
         }
     }
 
@@ -186,7 +191,7 @@ struct LauncherView: View {
     // MARK: - Actions
 
     private func closeApp() {
-        NSApp.terminate(nil)
+        AppDelegate.shared?.hideLauncher()
     }
 
     private var hiddenAppsToggle: some View {
@@ -257,10 +262,10 @@ struct LauncherView: View {
         withAnimation(.easeOut(duration: 0.11)) {
             launchingId = app.id
         }
+        let url = app.url
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            NSApp.windows.forEach { $0.orderOut(nil) }
-            NSWorkspace.shared.open(app.url)
-            NSApp.terminate(nil)
+            AppDelegate.shared?.hideLauncher()
+            NSWorkspace.shared.open(url)
         }
     }
 

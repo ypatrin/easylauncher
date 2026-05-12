@@ -1,9 +1,22 @@
 import Cocoa
 import SwiftUI
 
+extension Notification.Name {
+    static let launcherWillHide = Notification.Name("EasyLauncher.launcherWillHide")
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    static private(set) weak var instance: AppDelegate?
+    static var shared: AppDelegate? { instance ?? (NSApp.delegate as? AppDelegate) }
+
     private let windowManager = WindowManager()
     private var monitors: [Any] = []
+    private var lastHideAt: Date?
+
+    override init() {
+        super.init()
+        AppDelegate.instance = self
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         windowManager.showLauncher(rootView: LauncherView())
@@ -13,6 +26,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         installScrollMonitor()
         installMouseMonitors()
+    }
+
+    func hideLauncher() {
+        NotificationCenter.default.post(name: .launcherWillHide, object: nil)
+        windowManager.hideLauncher()
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        windowManager.presentLauncher()
+        return true
     }
 
     private func installScrollMonitor() {
@@ -49,7 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // Defer so SwiftUI tap handlers (icons, dots) can flip the flag first.
                 DispatchQueue.main.async {
                     if CloseTracker.shouldClose {
-                        NSApp.terminate(nil)
+                        self.hideLauncher()
                     }
                 }
             }
@@ -85,6 +108,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        true
+        false
     }
 }

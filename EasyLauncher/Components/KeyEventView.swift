@@ -19,7 +19,7 @@ struct KeyEventView: NSViewRepresentable {
         func install() {
             monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                 if event.keyCode == 53 { // ESC
-                    NSApp.terminate(nil)
+                    AppDelegate.shared?.hideLauncher()
                     return nil
                 }
                 return event
