@@ -17,7 +17,7 @@ enum LayoutPersistence {
     }
 }
 
-/// Persisted page layout at `~/Library/Application Support/EasyLaunch/layout.json`.
+/// Persisted page layout at `~/Library/Application Support/EasyLauncher/layout.json`.
 /// The file stores both page boundaries and app order. Old flat-order files are
 /// still accepted and transparently upgraded on next save.
 enum LayoutStore {
@@ -27,7 +27,7 @@ enum LayoutStore {
             in: .userDomainMask
         ).first ?? URL(fileURLWithPath: NSHomeDirectory())
             .appendingPathComponent("Library/Application Support")
-        return support.appendingPathComponent("EasyLaunch", isDirectory: true)
+        return support.appendingPathComponent("EasyLauncher", isDirectory: true)
     }
 
     private static var fileURL: URL {
@@ -76,7 +76,7 @@ enum LayoutStore {
             do {
                 try fm.createDirectory(at: directoryURL, withIntermediateDirectories: true)
             } catch {
-                fputs("EasyLaunch: failed to create \(directoryURL.path): \(error)\n", stderr)
+                fputs("EasyLauncher: failed to create \(directoryURL.path): \(error)\n", stderr)
                 return
             }
         }
@@ -89,7 +89,7 @@ enum LayoutStore {
             let data = try encoder.encode(Layout(order: order, pages: nonEmptyPages, hidden: hidden))
             try data.write(to: fileURL, options: .atomic)
         } catch {
-            fputs("EasyLaunch: failed to write \(fileURL.path): \(error)\n", stderr)
+            fputs("EasyLauncher: failed to write \(fileURL.path): \(error)\n", stderr)
         }
     }
 }

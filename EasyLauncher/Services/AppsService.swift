@@ -1,7 +1,7 @@
 import Foundation
 import AppKit
 
-enum AppScanner {
+enum AppsService {
     static func scan() -> [AppItem] {
         let home = NSString(string: "~/Applications").expandingTildeInPath
         let roots = [

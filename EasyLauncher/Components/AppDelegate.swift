@@ -1,65 +1,28 @@
 import Cocoa
 import SwiftUI
 
-/// Borderless NSWindow that's allowed to become key/main so SwiftUI text fields
-/// and focus work as expected.
-final class LauncherWindow: NSWindow {
-    override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { true }
-}
-
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var window: NSWindow!
-    private var scrollMonitor: Any?
-    private var keyMonitor: Any?
-    private var mouseDownMonitor: Any?
-    private var mouseUpMonitor: Any?
+    private let windowManager = WindowManager()
+    private var monitors: [Any] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let screen = NSScreen.main ?? NSScreen.screens.first!
-        let frame = screen.frame
-
-        window = LauncherWindow(
-            contentRect: frame,
-            styleMask: [.borderless, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
-        )
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        window.hasShadow = false
-        window.level = .popUpMenu  // above (almost) everything, like Launchpad
-        window.collectionBehavior = [
-            .canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle,
-        ]
-        window.isMovable = false
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
-
-        let hosting = NSHostingView(rootView: ContentView())
-        hosting.frame = frame
-        hosting.autoresizingMask = [.width, .height]
-        window.contentView = hosting
-
-        window.makeKeyAndOrderFront(nil)
-        window.makeFirstResponder(hosting)
+        windowManager.showLauncher(rootView: LauncherView())
 
         NSApp.activate(ignoringOtherApps: true)
         NSApp.presentationOptions = [.autoHideDock, .autoHideMenuBar]
 
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            if event.keyCode == 53 {  // ESC
-                NSApp.terminate(nil)
-                return nil
-            }
-            return event
-        }
+        installScrollMonitor()
+        installMouseMonitors()
+    }
 
-        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+    private func installScrollMonitor() {
+        addMonitor(matching: .scrollWheel) { event in
             Pager.shared.handleScroll(event) ? nil : event
         }
+    }
 
-        mouseDownMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { event in
+    private func installMouseMonitors() {
+        addMonitor(matching: .leftMouseDown) { event in
             CloseTracker.shouldClose = true
             CloseTracker.downPosition = NSEvent.mouseLocation
 
@@ -76,7 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return event
         }
 
-        mouseUpMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { event in
+        addMonitor(matching: .leftMouseUp) { event in
             let pos = NSEvent.mouseLocation
             let dist = hypot(
                 pos.x - CloseTracker.downPosition.x,
@@ -107,10 +70,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    func applicationWillTerminate(_ notification: Notification) {
-        for m in [scrollMonitor, keyMonitor, mouseDownMonitor, mouseUpMonitor] {
-            if let m { NSEvent.removeMonitor(m) }
+    private func addMonitor(
+        matching mask: NSEvent.EventTypeMask,
+        handler: @escaping (NSEvent) -> NSEvent?
+    ) {
+        if let monitor = NSEvent.addLocalMonitorForEvents(matching: mask, handler: handler) {
+            monitors.append(monitor)
         }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        monitors.forEach { NSEvent.removeMonitor($0) }
+        monitors.removeAll()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

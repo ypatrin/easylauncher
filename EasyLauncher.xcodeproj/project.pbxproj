@@ -7,13 +7,13 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		5AD70D4C2FB20D630003CA12 /* EasyLaunch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EasyLaunch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5AD70D4C2FB20D630003CA12 /* EasyLauncher.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EasyLauncher.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		5AD70D4E2FB20D630003CA12 /* EasyLaunch */ = {
+		5AD70D4E2FB20D630003CA12 /* EasyLauncher */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = EasyLaunch;
+			path = EasyLauncher;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -32,7 +32,7 @@
 		5AD70D432FB20D630003CA12 = {
 			isa = PBXGroup;
 			children = (
-				5AD70D4E2FB20D630003CA12 /* EasyLaunch */,
+				5AD70D4E2FB20D630003CA12 /* EasyLauncher */,
 				5AD70D4D2FB20D630003CA12 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -40,7 +40,7 @@
 		5AD70D4D2FB20D630003CA12 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				5AD70D4C2FB20D630003CA12 /* EasyLaunch.app */,
+				5AD70D4C2FB20D630003CA12 /* EasyLauncher.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,9 +48,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		5AD70D4B2FB20D630003CA12 /* EasyLaunch */ = {
+		5AD70D4B2FB20D630003CA12 /* EasyLauncher */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 5AD70D572FB20D640003CA12 /* Build configuration list for PBXNativeTarget "EasyLaunch" */;
+			buildConfigurationList = 5AD70D572FB20D640003CA12 /* Build configuration list for PBXNativeTarget "EasyLauncher" */;
 			buildPhases = (
 				5AD70D482FB20D630003CA12 /* Sources */,
 				5AD70D492FB20D630003CA12 /* Frameworks */,
@@ -61,13 +61,13 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				5AD70D4E2FB20D630003CA12 /* EasyLaunch */,
+				5AD70D4E2FB20D630003CA12 /* EasyLauncher */,
 			);
-			name = EasyLaunch;
+			name = EasyLauncher;
 			packageProductDependencies = (
 			);
-			productName = EasyLaunch;
-			productReference = 5AD70D4C2FB20D630003CA12 /* EasyLaunch.app */;
+			productName = EasyLauncher;
+			productReference = 5AD70D4C2FB20D630003CA12 /* EasyLauncher.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -85,7 +85,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 5AD70D472FB20D630003CA12 /* Build configuration list for PBXProject "EasyLaunch" */;
+			buildConfigurationList = 5AD70D472FB20D630003CA12 /* Build configuration list for PBXProject "EasyLauncher" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -99,7 +99,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				5AD70D4B2FB20D630003CA12 /* EasyLaunch */,
+				5AD70D4B2FB20D630003CA12 /* EasyLauncher */,
 			);
 		};
 /* End PBXProject section */
@@ -261,7 +261,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.ypatrin.EasyLaunch;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ypatrin.EasyLauncher;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -291,7 +291,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.ypatrin.EasyLaunch;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ypatrin.EasyLauncher;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -306,7 +306,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		5AD70D472FB20D630003CA12 /* Build configuration list for PBXProject "EasyLaunch" */ = {
+		5AD70D472FB20D630003CA12 /* Build configuration list for PBXProject "EasyLauncher" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				5AD70D552FB20D640003CA12 /* Debug */,
@@ -315,7 +315,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		5AD70D572FB20D640003CA12 /* Build configuration list for PBXNativeTarget "EasyLaunch" */ = {
+		5AD70D572FB20D640003CA12 /* Build configuration list for PBXNativeTarget "EasyLauncher" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				5AD70D582FB20D640003CA12 /* Debug */,

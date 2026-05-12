@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-struct ContentView: View {
+struct LauncherView: View {
     @ObservedObject private var pager = Pager.shared
     @ObservedObject private var dragTracker = DragTracker.shared
 
@@ -59,14 +59,12 @@ struct ContentView: View {
             let metrics = iconMetrics(for: geo.size)
 
             ZStack {
-                VisualEffectBackground()
-                    .ignoresSafeArea()
+                LaunchpadBackground()
                     .contentShape(Rectangle())
                     .onTapGesture { closeApp() }
-                Color.black.opacity(0.25)
-                    .ignoresSafeArea()
-                    .contentShape(Rectangle())
-                    .onTapGesture { closeApp() }
+
+                KeyEventView()
+                    .frame(width: 0, height: 0)
 
                 VStack(spacing: 16) {
                     HStack(spacing: 10) {
@@ -88,10 +86,9 @@ struct ContentView: View {
                 }
             }
             .opacity(appeared ? 1 : 0)
-//        .scaleEffect(appeared ? 1 : 0.94)
             .onAppear {
                 DispatchQueue.global(qos: .userInitiated).async {
-                    let apps = AppScanner.scan()
+                    let apps = AppsService.scan()
                     DispatchQueue.main.async {
                         applyApps(apps)
                         withAnimation(.easeOut(duration: 0.10)) {
