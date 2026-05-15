@@ -31,7 +31,7 @@ final class Pager: ObservableObject {
         let clamped = max(0, min(index, pageCount - 1))
         guard clamped != current else { return }
         if animated {
-            withAnimation(.easeInOut(duration: 0.32)) { current = clamped }
+            withAnimation(Self.pageTransition) { current = clamped }
         } else {
             var transaction = Transaction()
             transaction.disablesAnimations = true
@@ -43,9 +43,6 @@ final class Pager: ObservableObject {
     /// Trackpad scrolls bypass this — they flow into the native ScrollView,
     /// which has gesture-aware paging. Plain mouse wheels don't produce
     /// horizontal deltas, so we translate vertical wheel ticks here.
-    /// Uses a slower, springy animation than `goTo` because mouse wheels
-    /// don't carry a velocity signal — a snappy 0.32s easeInOut feels
-    /// abrupt when the user wasn't dragging the page across the screen.
     func handleMouseWheel(deltaX: CGFloat, deltaY: CGFloat) {
         let delta = abs(deltaX) > abs(deltaY) ? deltaX : deltaY
         guard abs(delta) > 0.1 else { return }
@@ -66,8 +63,18 @@ final class Pager: ObservableObject {
             return
         }
         lastFlipAt = now
-        withAnimation(.easeInOut(duration: 0.8)) {
+        withAnimation(Self.pageTransition) {
             current = target
         }
     }
+
+    /// Shared page-transition animation. A critically-damped spring lands the
+    /// page without the symmetrical "machine" feel of `easeInOut` — fast start,
+    /// gentle settle. Used by both wheel events and indicator-tap / drag-edge
+    /// goTo so the launcher's paging feels consistent everywhere.
+    static let pageTransition: Animation = .spring(
+        response: 0.55,
+        dampingFraction: 0.86,
+        blendDuration: 0
+    )
 }
