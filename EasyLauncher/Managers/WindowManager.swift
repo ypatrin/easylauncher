@@ -50,8 +50,28 @@ final class WindowManager {
 
     func presentLauncher() {
         guard let window else { return }
+
+        // Re-stretch the window to the current main screen — the screen
+        // arrangement, resolution or the active display can change while we're
+        // hidden, and a stale frame leaves the launcher covering only part of
+        // the desktop after unhide.
+        if let screen = NSScreen.main ?? NSScreen.screens.first {
+            window.setFrame(screen.frame, display: false)
+            window.contentView?.frame = NSRect(origin: .zero, size: screen.frame.size)
+        }
+
+        // Re-assert the chrome that macOS sometimes drops while the app is
+        // hidden (window level + space behaviour + auto-hide of the dock and
+        // menu bar).
+        window.level = .popUpMenu
+        window.collectionBehavior = [
+            .canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle,
+        ]
+
         NSApp.unhide(nil)
         NSApp.activate(ignoringOtherApps: true)
+        NSApp.presentationOptions = [.autoHideDock, .autoHideMenuBar]
+
         window.makeKeyAndOrderFront(nil)
         if let hosting = window.contentView {
             window.makeFirstResponder(hosting)

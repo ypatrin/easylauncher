@@ -14,6 +14,7 @@ enum L10n {
         let show: String
         let hiddenApps: String
         let visibleApps: String
+        let noResults: String
     }
 
     static var current: Strings {
@@ -25,7 +26,8 @@ enum L10n {
                 hide: "Скрыть",
                 show: "Показать",
                 hiddenApps: "Скрытые приложения",
-                visibleApps: "Видимые приложения"
+                visibleApps: "Видимые приложения",
+                noResults: "Ничего не найдено"
             )
         case .ukrainian:
             return Strings(
@@ -34,7 +36,8 @@ enum L10n {
                 hide: "Сховати",
                 show: "Показати",
                 hiddenApps: "Приховані застосунки",
-                visibleApps: "Видимі застосунки"
+                visibleApps: "Видимі застосунки",
+                noResults: "Нічого не знайдено"
             )
         case .english:
             return Strings(
@@ -43,7 +46,8 @@ enum L10n {
                 hide: "Hide",
                 show: "Show",
                 hiddenApps: "Hidden Apps",
-                visibleApps: "Visible Apps"
+                visibleApps: "Visible Apps",
+                noResults: "Nothing found"
             )
         }
     }

@@ -19,6 +19,7 @@ struct LauncherView: View {
     @State private var showingHiddenApps: Bool = false
     @State private var pagerStripFrame: CGRect = .zero
     @State private var lastMetrics: IconMetrics = IconMetrics(iconSize: 72, labelFontSize: 13, gridTopPadding: 24, gridBottomPadding: 24)
+    @State private var searchSelectedIndex: Int = 0
 
     private let columns = 7
     private let rows = 5
@@ -74,8 +75,35 @@ struct LauncherView: View {
                     .contentShape(Rectangle())
                     .onTapGesture { closeApp() }
 
-                KeyEventView()
-                    .frame(width: 0, height: 0)
+                LauncherKeys(
+                    onUp: {
+                        guard !search.isEmpty else { return false }
+                        moveSearchSelection(by: -1)
+                        return true
+                    },
+                    onDown: {
+                        guard !search.isEmpty else { return false }
+                        moveSearchSelection(by: 1)
+                        return true
+                    },
+                    onEnter: {
+                        guard !search.isEmpty else { return false }
+                        let results = filtered
+                        guard results.indices.contains(searchSelectedIndex) else { return false }
+                        launch(results[searchSelectedIndex])
+                        return true
+                    },
+                    onEscape: {
+                        if !search.isEmpty {
+                            search = ""
+                            searchSelectedIndex = 0
+                            return true
+                        }
+                        closeApp()
+                        return true
+                    }
+                )
+                .frame(width: 0, height: 0)
 
                 VStack(spacing: 16) {
                     HStack(spacing: 10) {
@@ -85,35 +113,52 @@ struct LauncherView: View {
                     .frame(maxWidth: 536)
                     .padding(.top, 48)
 
-                    if !search.isEmpty {
-                        searchResults(metrics: metrics)
-                    } else {
-                        PagerStripView(
-                            pager: pager,
-                            pages: pages,
-                            metrics: metrics,
-                            columns: columns,
-                            rows: rows,
-                            launchingId: launchingId,
-                            draggingItem: Binding(
-                                get: { dragTracker.item },
-                                set: { dragTracker.item = $0 }
-                            ),
-                            isDragging: dragTracker.item != nil,
-                            onLaunch: launch,
-                            onTapBackground: { closeApp() },
-                            onMove: showingHiddenApps ? nil : { pageIndex, targetIndex in
-                                moveDraggedItem(toPage: pageIndex, to: targetIndex)
-                            },
-                            onPageTurnRequest: showingHiddenApps ? nil : { direction in
-                                handleDragPageTurn(direction)
-                            }
-                        )
-                        PageIndicatorBar(pager: pager, count: pages.count)
-                            .padding(.bottom, 28)
+                    // The pager stays mounted regardless of search state so
+                    // the icon grid keeps showing behind the dropdown and the
+                    // search field doesn't shift position when results appear.
+                    ZStack(alignment: .top) {
+                        VStack(spacing: 16) {
+                            PagerStripView(
+                                pager: pager,
+                                pages: pages,
+                                metrics: metrics,
+                                columns: columns,
+                                rows: rows,
+                                launchingId: launchingId,
+                                draggingItem: Binding(
+                                    get: { dragTracker.item },
+                                    set: { dragTracker.item = $0 }
+                                ),
+                                isDragging: dragTracker.item != nil,
+                                onLaunch: launch,
+                                onTapBackground: { closeApp() },
+                                onMove: showingHiddenApps ? nil : { pageIndex, targetIndex in
+                                    moveDraggedItem(toPage: pageIndex, to: targetIndex)
+                                },
+                                onPageTurnRequest: showingHiddenApps ? nil : { direction in
+                                    handleDragPageTurn(direction)
+                                }
+                            )
+                            PageIndicatorBar(pager: pager, count: pages.count)
+                                .padding(.bottom, 28)
+                        }
+                        .allowsHitTesting(search.isEmpty)
+
+                        if !search.isEmpty {
+                            SearchResultsList(
+                                apps: filtered,
+                                selectedIndex: $searchSelectedIndex,
+                                onLaunch: launch,
+                                emptyMessage: strings.noResults
+                            )
+                            .frame(maxWidth: 720)
+                            .padding(.horizontal, 40)
+                        }
                     }
                 }
+                .frame(maxHeight: .infinity, alignment: .top)
             }
+            .onChange(of: search) { _, _ in searchSelectedIndex = 0 }
             .opacity(appeared ? 1 : 0)
             .onAppear {
                 DispatchQueue.global(qos: .userInitiated).async {
@@ -206,34 +251,13 @@ struct LauncherView: View {
     // MARK: - Pager
     // (PagerStripView / PageIndicatorBar below own all per-frame pager state)
 
-    // MARK: - Search results
+    // MARK: - Search keyboard nav
 
-    private func searchResults(metrics: IconMetrics) -> some View {
-        GeometryReader { geo in
-            let draggingBinding = Binding<AppItem?>(
-                get: { dragTracker.item },
-                set: { dragTracker.item = $0 }
-            )
-            AppGridPage(
-                apps: filtered,
-                pageIndex: 0,
-                columns: columns,
-                rows: rows,
-                iconSize: metrics.iconSize,
-                labelFontSize: metrics.labelFontSize,
-                launchingId: launchingId,
-                draggingItem: draggingBinding,
-                onLaunch: launch,
-                onMove: nil,
-                onPageTurnRequest: nil
-            )
-            .padding(.horizontal, 80)
-            .padding(.top, metrics.gridTopPadding)
-            .padding(.bottom, metrics.gridBottomPadding)
-            .frame(width: geo.size.width, height: geo.size.height)
-            .contentShape(Rectangle())
-            .onTapGesture { closeApp() }
-        }
+    private func moveSearchSelection(by delta: Int) {
+        let results = filtered
+        guard !results.isEmpty else { return }
+        let next = searchSelectedIndex + delta
+        searchSelectedIndex = max(0, min(results.count - 1, next))
     }
 
     // MARK: - Actions

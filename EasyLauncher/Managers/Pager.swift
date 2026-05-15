@@ -13,13 +13,13 @@ final class Pager: ObservableObject {
     @Published var current: Int = 0
     @Published var pageCount: Int = 1
 
-    private var lastWheelChange: TimeInterval = 0
-    /// Minimum time between wheel-driven page flips. Tuned just long enough
-    /// to absorb the trailing tail of NSEvents that follow a single physical
-    /// wheel notch (~50–80ms), but short enough that successive deliberate
-    /// clicks can stack — the previous page's animation simply interrupts
-    /// and continues toward the new target.
-    private let wheelCooldown: TimeInterval = 0.18
+    /// When we last advanced the page in response to a wheel event.
+    private var lastFlipAt: TimeInterval = 0
+    /// Minimum time between page flips. One physical wheel notch often expands
+    /// into several NSEvents spread over 100–300ms (macOS smoothing). The
+    /// cooldown is wide enough that the tail of one notch can't sneak through
+    /// while still letting deliberate, paced rolling page through at ~3 fps.
+    private let flipCooldown: TimeInterval = 0.35
 
     func reset(pageCount: Int) {
         self.pageCount = max(pageCount, 1)
@@ -48,9 +48,14 @@ final class Pager: ObservableObject {
     /// abrupt when the user wasn't dragging the page across the screen.
     func handleMouseWheel(deltaX: CGFloat, deltaY: CGFloat) {
         let delta = abs(deltaX) > abs(deltaY) ? deltaX : deltaY
-        guard abs(delta) > 0.5 else { return }
+        guard abs(delta) > 0.1 else { return }
+
+        // Hard cap: at most one page per cooldown window. Each NSEvent flips
+        // at most once regardless of its magnitude — otherwise a single notch
+        // with a large delta or several events of the same notch would chain
+        // multiple flips and rocket us to the last page.
         let now = ProcessInfo.processInfo.systemUptime
-        if now - lastWheelChange < wheelCooldown { return }
+        guard now - lastFlipAt > flipCooldown else { return }
 
         let target: Int
         if delta < 0, current < pageCount - 1 {
@@ -60,7 +65,7 @@ final class Pager: ObservableObject {
         } else {
             return
         }
-        lastWheelChange = now
+        lastFlipAt = now
         withAnimation(.easeInOut(duration: 0.8)) {
             current = target
         }
