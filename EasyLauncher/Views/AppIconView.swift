@@ -6,33 +6,26 @@ struct AppIconView: View {
     let iconSize: CGFloat
     let labelFontSize: CGFloat
     let isLaunching: Bool
-    let isHidden: Bool
-    let strings: L10n.Strings
     let onLaunch: (AppItem) -> Void
-    let onToggleHidden: (AppItem) -> Void
 
     var body: some View {
         VStack(spacing: 8) {
             ZStack {
                 Image(nsImage: app.icon)
                     .resizable()
-                    .interpolation(.high)
                     .frame(width: iconSize, height: iconSize)
-                    .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
-                Image(nsImage: app.icon)
-                    .resizable()
-                    .interpolation(.high)
-                    .frame(width: iconSize, height: iconSize)
-                    .scaleEffect(isLaunching ? 2.4 : 1.0)
-                    .opacity(isLaunching ? 0 : 1)
-                    .allowsHitTesting(false)
+                // The launch "puff" overlay only matters for the icon being
+                // tapped — skip it for everyone else so we render one image
+                // per cell, not two.
+                if isLaunching {
+                    LaunchPuff(icon: app.icon, iconSize: iconSize)
+                }
             }
             Text(app.name)
                 .font(.system(size: labelFontSize))
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .truncationMode(.tail)
-                .shadow(color: .black.opacity(0.6), radius: 2, y: 1)
                 .frame(maxWidth: iconSize + 28)
         }
         .padding(8)
@@ -41,15 +34,28 @@ struct AppIconView: View {
             CloseTracker.shouldClose = false
             onLaunch(app)
         }
-        .contextMenu {
-            Button(strings.launch) {
-                CloseTracker.shouldClose = false
-                onLaunch(app)
+    }
+}
+
+/// Animated scale-up + fade-out copy of the icon that materialises only while
+/// `isLaunching` is true. Owns its own animation state so the puff starts
+/// from scale 1 / opacity 1 on insertion and finishes at scale 2.4 / opacity 0.
+private struct LaunchPuff: View {
+    let icon: NSImage
+    let iconSize: CGFloat
+    @State private var animated = false
+
+    var body: some View {
+        Image(nsImage: icon)
+            .resizable()
+            .frame(width: iconSize, height: iconSize)
+            .scaleEffect(animated ? 2.4 : 1.0)
+            .opacity(animated ? 0 : 1)
+            .allowsHitTesting(false)
+            .onAppear {
+                withAnimation(.easeOut(duration: 0.18)) {
+                    animated = true
+                }
             }
-            Button(isHidden ? strings.show : strings.hide) {
-                CloseTracker.shouldClose = false
-                onToggleHidden(app)
-            }
-        }
     }
 }

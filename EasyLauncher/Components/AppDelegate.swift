@@ -11,7 +11,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private let windowManager = WindowManager()
     private var monitors: [Any] = []
-    private var lastHideAt: Date?
 
     override init() {
         super.init()
@@ -26,6 +25,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         installScrollMonitor()
         installMouseMonitors()
+        installRightClickMonitor()
+    }
+
+    private func installRightClickMonitor() {
+        addMonitor(matching: .rightMouseDown) { event in
+            CloseTracker.shouldClose = false
+            IconHitTester.shared.handleRightClick(event)
+            return nil
+        }
     }
 
     func hideLauncher() {
@@ -38,9 +46,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
+    /// Translate vertical mouse-wheel ticks into page flips. Trackpad scrolls
+    /// (which have non-empty `phase` / `momentumPhase`) pass straight through
+    /// to SwiftUI's native horizontal ScrollView, whose paging behavior is
+    /// gesture-aware. A plain mouse wheel only produces vertical deltas, so
+    /// without this hook the horizontal ScrollView wouldn't see anything.
     private func installScrollMonitor() {
         addMonitor(matching: .scrollWheel) { event in
-            Pager.shared.handleScroll(event) ? nil : event
+            guard event.phase.isEmpty, event.momentumPhase.isEmpty else {
+                return event
+            }
+            Pager.shared.handleMouseWheel(
+                deltaX: event.scrollingDeltaX,
+                deltaY: event.scrollingDeltaY
+            )
+            return nil
         }
     }
 

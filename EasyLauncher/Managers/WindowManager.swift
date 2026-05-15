@@ -22,8 +22,12 @@ final class WindowManager {
             backing: .buffered,
             defer: false
         )
-        window.isOpaque = false
-        window.backgroundColor = .clear
+        // Opaque fullscreen window — the window server can then skip
+        // compositing everything behind us, which is a huge perf win on
+        // a 5K display during paging scroll. The content fills the window
+        // with an opaque background so nothing leaks through.
+        window.isOpaque = true
+        window.backgroundColor = .black
         window.hasShadow = false
         window.level = .popUpMenu  // above (almost) everything, like Launchpad
         window.collectionBehavior = [

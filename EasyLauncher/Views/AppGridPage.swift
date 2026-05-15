@@ -11,9 +11,6 @@ struct AppGridPage: View {
     let launchingId: String?
     @Binding var draggingItem: AppItem?
     let onLaunch: (AppItem) -> Void
-    let onToggleHidden: (AppItem) -> Void
-    let isHidden: (AppItem) -> Bool
-    let strings: L10n.Strings
     /// Live-reorder callback. nil disables drag (e.g. search results).
     let onMove: ((Int, Int) -> Void)?
     let onPageTurnRequest: ((PageTurnDirection) -> Void)?
@@ -42,6 +39,13 @@ struct AppGridPage: View {
             }
             .animation(.spring(response: 0.32, dampingFraction: 0.78), value: apps)
             .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+            // Rasterise the whole page into one Metal-backed bitmap so the
+            // ScrollView just slides a texture during paging. We drop the
+            // rasterisation while a launch puff is animating or a drag is in
+            // flight, because both need continuous re-rendering of cells.
+            .modifier(StaticPageRasterizer(
+                enabled: launchingId == nil && draggingItem == nil
+            ))
             .contentShape(Rectangle())
             .onDrop(of: [.text], delegate: GridDropDelegate(
                 apps: apps,
@@ -67,10 +71,7 @@ struct AppGridPage: View {
             iconSize: iconSize,
             labelFontSize: labelFontSize,
             isLaunching: app.id == launchingId,
-            isHidden: isHidden(app),
-            strings: strings,
-            onLaunch: onLaunch,
-            onToggleHidden: onToggleHidden
+            onLaunch: onLaunch
         )
         .opacity(dragged ? 0 : 1)
         .modifier(CellDragModifier(
@@ -79,6 +80,21 @@ struct AppGridPage: View {
             iconSize: iconSize,
             enabled: onMove != nil
         ))
+    }
+}
+
+/// Wraps the page in a `.drawingGroup()` only when the page's contents are
+/// effectively static. Toggling the modifier rebuilds the subtree, so we keep
+/// the toggle bound to coarse predicates that don't flicker.
+private struct StaticPageRasterizer: ViewModifier {
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.drawingGroup(opaque: false)
+        } else {
+            content
+        }
     }
 }
 
