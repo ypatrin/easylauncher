@@ -53,8 +53,14 @@ private struct LaunchPuff: View {
             .opacity(animated ? 0 : 1)
             .allowsHitTesting(false)
             .onAppear {
-                withAnimation(.easeOut(duration: 0.18)) {
-                    animated = true
+                // Defer to the next runloop so SwiftUI commits the initial
+                // (animated=false) frame before we kick off the transition —
+                // otherwise the change can be coalesced into the same render
+                // pass and the user sees no animation at all.
+                DispatchQueue.main.async {
+                    withAnimation(.easeOut(duration: 0.18)) {
+                        animated = true
+                    }
                 }
             }
     }

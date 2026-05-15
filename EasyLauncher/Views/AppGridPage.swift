@@ -40,12 +40,13 @@ struct AppGridPage: View {
             .animation(.spring(response: 0.32, dampingFraction: 0.78), value: apps)
             .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
             // Rasterise the whole page into one Metal-backed bitmap so the
-            // ScrollView just slides a texture during paging. We drop the
-            // rasterisation while a launch puff is animating or a drag is in
-            // flight, because both need continuous re-rendering of cells.
-            .modifier(StaticPageRasterizer(
-                enabled: launchingId == nil && draggingItem == nil
-            ))
+            // ScrollView just slides a texture during paging. Only drop the
+            // rasterisation while a drag is in flight — toggling the modifier
+            // swaps `_ConditionalContent` branches, which would tear down the
+            // freshly-inserted launch puff before its onAppear animation has
+            // a chance to play. The puff itself only animates for ~0.18s so
+            // re-rasterising those few frames is cheap.
+            .modifier(StaticPageRasterizer(enabled: draggingItem == nil))
             .contentShape(Rectangle())
             .onDrop(of: [.text], delegate: GridDropDelegate(
                 apps: apps,
